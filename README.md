@@ -51,4 +51,6 @@ This project enables chat-driven control of games or applications by capturing c
 ---
 
 ## Notes
-- Voting mode can be toggled in the scripts for collaborative play. 
+- Voting mode can be toggled in the scripts for collaborative play.
+
+- 5fsL7xPLuEop4PxaGQeaEgtA29tAiEeo7Mx59x3G2PX7
