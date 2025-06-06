@@ -6,50 +6,29 @@ const liveToken = '' // pump token here
 const updateTime = 500; // Time between checking for new messages in milliseconds
 const VOTING_MODE = true; // Set to false for direct mode
 const VOTING_TIME_MS = 2000; // Voting window in milliseconds
+const CAPTURABLE_WORDS = [
+  'up', 'down', 'left', 'right', 'wait', 'undo', 'restart', 'back', 'confirm'
+];
 
-// For Intermediate: 16x16 gridconsole
-const CAPTURABLE_WORDS = [];
-for (let col = 'A'.charCodeAt(0); col <= 'P'.charCodeAt(0); col++) {
-  for (let row = 1; row <= 16; row++) {
-    CAPTURABLE_WORDS.push(`${String.fromCharCode(col)}${row}`);
-  }
-}
-CAPTURABLE_WORDS.push('RESET');
+// Map commands to keys
+const COMMAND_KEY_MAP = {
+  'up': 'w',
+  'down': 's',
+  'left': 'a',
+  'right': 'd',
+  'restart': 'r',
+  'back': 'z',
+  'wait': 'x',
+  'confirm': 'x'
+};
 
-// Function to convert grid coordinate to screen coordinates
-function gridToScreenCoordinates(gridCoord) {
-  if (gridCoord === 'RESET') {
-    return { x: 869, y: 262 }; // Smiley button
-  }
-  const col = gridCoord[0].toUpperCase();
-  const row = parseInt(gridCoord.slice(1));
-  const x0 = 687; // A1 x
-  const y0 = 315; // A1 y
-  const cellSize = 24; // width between A1 and B1
-
-  const x = x0 + (col.charCodeAt(0) - 'A'.charCodeAt(0)) * cellSize;
-  const y = y0 + (row - 1) * cellSize;
-  return { x, y };
-}
-
-function simulateClick(coordinates) {
-  robot.moveMouse(coordinates.x, coordinates.y);
-  robot.mouseClick();
-  robot.moveMouse(100, 100); // Move away after click
-}
-
-function simulateRightClick(coordinates) {
-  robot.moveMouse(coordinates.x, coordinates.y);
-  robot.mouseClick('right');
-  robot.moveMouse(100, 100); // Move away after right-click
-}
-
-function simulateKeypress(command, isFlag = false) {
-  const coordinates = gridToScreenCoordinates(command);
-  if (isFlag) {
-    simulateRightClick(coordinates);
+function simulateKeypress(command) {
+  const key = COMMAND_KEY_MAP[command];
+  if (key) {
+    robot.keyTap(key);
+    console.log(`[KEYPRESS] Simulated: ${key}`);
   } else {
-    simulateClick(coordinates);
+    console.log(`[KEYPRESS] No key mapped for command: ${command}`);
   }
 }
 
@@ -91,20 +70,11 @@ function simulateKeypress(command, isFlag = false) {
     for (const msg of messages) {
       if (!lastSeenIds.has(msg.id)) {
         lastSeenIds.add(msg.id);
-        // Process message and convert to uppercase for grid coordinates
-        let commandText = msg.text?.trim().toUpperCase() || '';
-        let isFlag = false;
-        if (commandText.startsWith('FLAG ')) {
-          isFlag = true;
-          commandText = commandText.slice(5).trim();
-        } else if (commandText.startsWith('PICK ')) {
-          commandText = commandText.slice(5).trim();
-        }
-        const command = commandText.replace(/\s+/g, '');
+        // Only process if message is exactly a capturable word (case-insensitive, trimmed)
+        const command = msg.text?.trim().toLowerCase();
         if (CAPTURABLE_WORDS.includes(command)) {
           if (VOTING_MODE) {
             voteCounts[command] = (voteCounts[command] || 0) + 1;
-            console.log(`[VOTE] Received vote for ${command} from ${msg.user}`);
             if (!votingTimeout) {
               votingTimeout = setTimeout(() => {
                 // Find the command with the most votes
@@ -114,7 +84,7 @@ function simulateKeypress(command, isFlag = false) {
                   // If tie, pick randomly
                   const chosen = winners[Math.floor(Math.random() * winners.length)];
                   console.log(`[VOTE RESULT] Command: ${chosen} | Votes: ${maxVotes}`);
-                  simulateKeypress(chosen, isFlag);
+                  simulateKeypress(chosen);
                 } else {
                   console.log('[VOTE RESULT] No valid votes this round.');
                 }
@@ -125,10 +95,8 @@ function simulateKeypress(command, isFlag = false) {
           } else {
             // Direct mode: trigger command immediately
             console.log(`[COMMAND] ${command} from ${msg.user} (${msg.walletAddress})`);
-            simulateKeypress(command, isFlag);
+            simulateKeypress(command);
           }
-        } else {
-          //console.log(`[IGNORED] Message "${command}" is not a valid grid coordinate`);
         }
       }
     }
